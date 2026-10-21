@@ -1,46 +1,113 @@
 # Tethermap
 
-Tethermap is an MCP-based project focused on connecting and navigating relationships between data through a shared graph core.
+An MCP platform that predicts what a software change will break and reconstructs why a failure happened, with every finding tied to evidence.
 
-## Project Status
+Tethermap builds a graph of how services, contracts, endpoints, tests and deployments depend on each other. AI assistants query that graph through MCP tools, so they reason from recorded relationships instead of guessing.
 
-**Current phase:** Phase 1 — Shared Core
+## Status
 
-The project is in its initial development stage. Phase 1 establishes the foundation for the graph core, PostgreSQL data model, and MCP server.
+Phase 1 (shared core) is complete: the graph library, a PostgreSQL schema with versioned history, and an MCP server with two tools.
 
-## Objectives
+| Phase | Focus | Status |
+| --- | --- | --- |
+| 1 | Shared core | Done |
+| 2 | Contracts | Planned |
+| 3 | Impact | Planned |
+| 4 | Trace | Planned |
 
-- Establish a reusable graph core.
-- Define the initial PostgreSQL database schema.
-- Set up the MCP server foundation.
-- Prepare the project for subsequent development phases.
+## Requirements
 
-## Technology Stack
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/)
+- Docker (for PostgreSQL)
 
-- **Language:** To be confirmed
-- **Database:** PostgreSQL
-- **Protocol:** Model Context Protocol (MCP)
+## Setup
 
-## Development
+```bash
+uv sync --python 3.12
+docker compose up -d
+```
 
-Development is organized into phases. Each phase should be implemented on its own feature branch and submitted to `main` through a pull request.
+The database listens on host port `5433`. To use a different database, set `DATABASE_URL`:
 
-### Current Phase: Shared Core
+```bash
+export DATABASE_URL="postgresql://user:password@host:port/dbname"
+```
 
-The initial scope includes:
+## Run
 
-- Graph core foundation
-- PostgreSQL schema
-- MCP server skeleton
+```bash
+uv run tethermap
+```
 
-## Contributing
+The server speaks MCP over stdio and prints nothing while it waits. Press Ctrl+C to stop it.
 
-1. Create a feature branch from `main`.
-2. Implement the changes for the relevant phase.
-3. Run the available checks and tests.
-4. Open a pull request against `main`.
-5. Link the pull request to the appropriate milestone.
+Tools are read-only by default. To enable `register_service`, set `TETHERMAP_ALLOW_WRITES=true`.
 
-## License
+## Tools
 
-License information will be added when the project's licensing terms are finalized.
+| Tool | Access | Description |
+| --- | --- | --- |
+| `get_service_relationships` | Read | Lists what a service provides and consumes, and what points at it |
+| `register_service` | Write | Registers a service and the contracts it provides or consumes |
+
+Links registered through `register_service` are marked `confirmed`. Links Tethermap guesses later will be marked `inferred`.
+
+## Use with Claude Desktop
+
+Add this to `claude_desktop_config.json` (Settings → Developer → Edit Config), using your own absolute path:
+
+```json
+{
+  "mcpServers": {
+    "tethermap": {
+      "command": "/absolute/path/to/tethermap/.venv/bin/tethermap",
+      "args": [],
+      "env": { "TETHERMAP_ALLOW_WRITES": "true" }
+    }
+  }
+}
+```
+
+`mcpServers` must be a top-level key in the file. Fully quit and reopen Claude Desktop, then try in a new chat:
+
+> Register a service named orders that provides orders-api and consumes billing-api.
+
+> Show the relationships of orders.
+
+To test without Claude Desktop, use the MCP Inspector:
+
+```bash
+npx @modelcontextprotocol/inspector /absolute/path/to/tethermap/.venv/bin/tethermap
+```
+
+## Test
+
+```bash
+uv run pytest
+```
+
+Tests need the database running.
+
+## Project layout
+
+```
+src/tethermap/
+├── core/          Graph engine, no MCP code
+│   ├── models.py  Node and edge kinds
+│   ├── schema.sql PostgreSQL schema
+│   ├── db.py      Connection and schema setup
+│   └── graph.py   Graph store
+└── mcp_server/    MCP interface
+    ├── tools.py   Tool definitions
+    └── server.py  Server and tool registry
+tests/
+```
+
+## Design principles
+
+- The core engine works without an LLM. MCP is only the interface.
+- Every claim links to evidence.
+- Dependencies are labelled `confirmed` or `inferred`.
+- Risk is an estimate, not a guarantee.
+- Tools are read-only unless writes are explicitly enabled.
