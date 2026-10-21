@@ -1,0 +1,82 @@
+openapi: 3.1.0
+info:
+  title: Orders
+  version: 1.0.0
+paths:
+  /orders:
+    get:
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, closed]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewOrder"
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: missing
+components:
+  schemas:
+    NewOrder:
+      type: object
+      required: [customer]
+      properties:
+        customer:
+          type: string
+        note:
+          type: [string, "null"]
+    Order:
+      allOf:
+        - $ref: "#/components/schemas/NewOrder"
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+            lines:
+              type: array
+              items:
+                type: array
+                properties:
+                  sku:
+                    type: string
+
+
+
